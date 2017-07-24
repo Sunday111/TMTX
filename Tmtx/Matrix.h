@@ -24,28 +24,50 @@ namespace matrix_details
 		using TFinal = Final<T, R, C>;
 
 	public:
-
 		TFinal& operator*=(T value)
 		{
 			auto& _this = static_cast<TFinal&>(*this);
-			ForEachCell<Multiplyer>(value);
+			ForEachCell<Multiply>(value);
 			return _this;
 		}
 
 		TFinal operator*(T value) const
 		{
 			auto result = static_cast<const TFinal&>(*this);
-			result.ForEachCell<Multiplyer>(value);
+			result *= value;
+			return result;
+		}
+
+		TFinal& operator+=(T value)
+		{
+			auto& _this = static_cast<TFinal&>(*this);
+			ForEachCell<Plus>(value);
+			return _this;
+		}
+
+		TFinal operator+(T value) const
+		{
+			auto result = static_cast<const TFinal&>(*this);
+			result += value;
 			return result;
 		}
 
 	private:
-		struct Multiplyer
+		struct Multiply
 		{
 			template<size_t ir, size_t ic>
 			static void Execute(TFinal& _this, T value)
 			{
 				_this.GetRow<ir>()[ic] *= value;
+			}
+		};
+
+		struct Plus
+		{
+			template<size_t ir, size_t ic>
+			static void Execute(TFinal& _this, T value)
+			{
+				_this.GetRow<ir>()[ic] += value;
 			}
 		};
 
@@ -64,7 +86,7 @@ namespace matrix_details
 		template<typename U, size_t ir, size_t... indices>
 		void ForEachCellInRow(T value, std::index_sequence<indices...>)
 		{
-			(void)std::initializer_list<int> { (Multiplyer::Execute<ir, indices>(
+			(void)std::initializer_list<int> { (U::Execute<ir, indices>(
 				static_cast<TFinal&>(*this), value), 0)... };
 		}
 	};

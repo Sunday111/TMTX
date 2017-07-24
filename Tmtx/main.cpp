@@ -19,7 +19,8 @@ int main()
 		row.fill(1.f);
 	}
 
-	auto res = matrix * 10.0;
+	auto mul = matrix * 10.f;
+	auto add = matrix + 10.f;
 
 	static_assert(sizeof(Matrix<float, 4, 4>) == sizeof(float) * 16, "Unexpected extra bytes in matrix layout?");
 }
