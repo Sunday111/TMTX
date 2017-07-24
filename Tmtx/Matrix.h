@@ -52,6 +52,22 @@ namespace matrix_details
 			return result;
 		}
 
+		template<template<typename, size_t, size_t> typename U>
+		TFinal& operator+=(const U<T, R, C>& value)
+		{
+			auto& _this = static_cast<TFinal&>(*this);
+			ForEachCell<Plus>(value);
+			return _this;
+		}
+
+		template<template<typename, size_t, size_t> typename U>
+		TFinal operator+(const U<T, R, C>& value) const
+		{
+			auto result = static_cast<const TFinal&>(*this);
+			result += value;
+			return result;
+		}
+
 	private:
 		struct Multiply
 		{
@@ -69,25 +85,33 @@ namespace matrix_details
 			{
 				_this.GetRow<ir>()[ic] += value;
 			}
+
+			template<size_t ir, size_t ic,
+				template<typename, size_t, size_t> typename U>
+			static void Execute(TFinal& _this, const U<T, R, C>& value)
+			{
+				_this.GetRow<ir>()[ic] +=
+					value.GetRow<ir>()[ic];
+			}
 		};
 
-		template<typename U>
-		void ForEachCell(T value)
+		template<typename U, typename... Args>
+		void ForEachCell(Args&... args)
 		{
-			ForEachRow<U>(value, std::make_index_sequence<R>());
+			ForEachRow<U>(std::make_index_sequence<R>(), args...);
 		}
 
-		template<typename U, size_t... indices>
-		void ForEachRow(T value, std::index_sequence<indices...>)
+		template<typename U, size_t... indices, typename... Args>
+		void ForEachRow(std::index_sequence<indices...>, Args&... args)
 		{
-			(void)std::initializer_list<int> { (ForEachCellInRow<U, indices>(value, std::make_index_sequence<C>()), 0)... };
+			(void)std::initializer_list<int> { (ForEachCellInRow<U, indices>(std::make_index_sequence<C>(), args...), 0)... };
 		}
 
-		template<typename U, size_t ir, size_t... indices>
-		void ForEachCellInRow(T value, std::index_sequence<indices...>)
+		template<typename U, size_t ir, size_t... indices, typename... Args>
+		void ForEachCellInRow(std::index_sequence<indices...>, Args&... args)
 		{
 			(void)std::initializer_list<int> { (U::Execute<ir, indices>(
-				static_cast<TFinal&>(*this), value), 0)... };
+				static_cast<TFinal&>(*this), args...), 0)... };
 		}
 	};
 	
@@ -127,7 +151,7 @@ namespace matrix_details
 		public:
 			using Row = StaticArray<T, C>;
 
-			Row& GetRow(int index)
+			Row& GetRow(size_t index)
 			{
 				return rows[index];
 			}
@@ -137,7 +161,7 @@ namespace matrix_details
 				return StaticArrayView<T, C, sizeof(T) * R>(rows.data()->data());
 			}
 
-			const Row& GetRow(int index) const
+			const Row& GetRow(size_t index) const
 			{
 				return rows[index];
 			}
@@ -171,7 +195,7 @@ namespace matrix_details
 		public:
 			using Row = StaticArray<T, 2>;
 
-			Row& GetRow(int index)
+			Row& GetRow(size_t index)
 			{
 				assert(index > 0);
 				return rows[0];
