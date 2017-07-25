@@ -15,40 +15,48 @@
 
 namespace matrix_details
 {
+	enum class DataType
+	{
+		Rows,
+		Columns
+	};
+
 	template<
 		typename T, size_t R, size_t C,
-		template<typename, size_t, size_t> typename Matrix,
-		template<typename, size_t, size_t> typename Final,
+		template<typename, size_t, size_t, typename Traits> typename Matrix,
+		template<typename, size_t, size_t, typename Traits> typename Final,
+		typename Traits,
 		typename Derived>
 	class BaseMatrixHelper
 	{
 	private:
-		using TFinal = Final<T, R, C>;
+		using TFinal = Final<T, R, C, Traits>;
 
 	protected:
+
 		struct Multiply
 		{
 			template<size_t ir, size_t ic>
 			static void Execute(TFinal& _this, T value)
 			{
-				_this.GetRow<ir>()[ic] *= value;
+				_this.data.GetCell<ir, ic>() *= value;
 			}
 		};
-
+		
 		struct Plus
 		{
 			template<size_t ir, size_t ic>
 			static void Execute(TFinal& _this, T value)
 			{
-				_this.GetRow<ir>()[ic] += value;
+				_this.data.GetCell<ir, ic>() += value;
 			}
 
 			template<size_t ir, size_t ic,
-				template<typename, size_t, size_t> typename U>
-			static void Execute(TFinal& _this, const U<T, R, C>& value)
+				template<typename, size_t, size_t, typename> typename U>
+			static void Execute(TFinal& _this, const U<T, R, C, Traits>& value)
 			{
-				_this.GetRow<ir>()[ic] +=
-					value.GetRow<ir>()[ic];
+				_this.data.GetCell<ir, ic>() +=
+					value.data.GetCell<ir, ic>();
 			}
 		};
 
@@ -57,15 +65,15 @@ namespace matrix_details
 			template<size_t ir, size_t ic>
 			static void Execute(TFinal& _this, T value)
 			{
-				_this.GetRow<ir>()[ic] -= value;
+				_this.data.GetCell<ir, ic>() -= value;
 			}
 
 			template<size_t ir, size_t ic,
-				template<typename, size_t, size_t> typename U>
-			static void Execute(TFinal& _this, const U<T, R, C>& value)
+				template<typename, size_t, size_t, typename> typename U>
+			static void Execute(TFinal& _this, const U<T, R, C, Traits>& value)
 			{
-				_this.GetRow<ir>()[ic] -=
-					value.GetRow<ir>()[ic];
+				_this.data.GetCell<ir, ic>() -=
+					value.data.GetCell<ir, ic>();
 			}
 		};
 
@@ -102,12 +110,14 @@ namespace matrix_details
 	{
 		template<
 			typename T, size_t R, size_t C,
-			template<typename, size_t, size_t> typename Matrix,
-			template<typename, size_t, size_t> typename Final>
+			template<typename, size_t, size_t, typename Traits> typename Matrix,
+			template<typename, size_t, size_t, typename Traits> typename Final,
+			typename Traits>
 		class CommonMatrixHelpers :
-			public BaseMatrixHelper<T, R, C, Matrix, Final, CommonMatrixHelpers<T, R, C, Matrix, Final>>
+			public BaseMatrixHelper<T, R, C, Matrix, Final, Traits,
+				CommonMatrixHelpers<T, R, C, Matrix, Final, Traits>>
 		{
-			using TFinal = Final<T, R, C>;
+			using TFinal = Final<T, R, C, Traits>;
 
 		public:
 			TFinal& operator*=(T value)
@@ -134,14 +144,14 @@ namespace matrix_details
 				return result;
 			}
 
-			template<template<typename, size_t, size_t> typename U>
-			TFinal& operator+=(const U<T, R, C>& value)
+			template<template<typename, size_t, size_t, typename> typename U>
+			TFinal& operator+=(const U<T, R, C, Traits>& value)
 			{
 				return ForEachCell<Plus>(value);
 			}
 
-			template<template<typename, size_t, size_t> typename U>
-			TFinal operator+(const U<T, R, C>& value) const
+			template<template<typename, size_t, size_t, typename> typename U>
+			TFinal operator+(const U<T, R, C, Traits>& value) const
 			{
 				auto result = static_cast<const TFinal&>(*this);
 				result += value;
@@ -154,26 +164,28 @@ namespace matrix_details
 	{
 		template<
 			typename T, size_t R, size_t C,
-			template<typename, size_t, size_t> typename Matrix,
-			template<typename, size_t, size_t> typename Final,
+			template<typename, size_t, size_t, typename Traits> typename Matrix,
+			template<typename, size_t, size_t, typename Traits> typename Final,
+			typename Traits,
 			typename Enable = void>
 		class SignedMatrixHelpers :
-			public BaseMatrixHelper<T, R, C, Matrix, Final,
-			SignedMatrixHelpers<T, R, C, Matrix, Final>>
+			public BaseMatrixHelper<T, R, C, Matrix, Final, Traits,
+			SignedMatrixHelpers<T, R, C, Matrix, Final, Traits>>
 		{
 		public:
 		};
 
 		template<
 			typename T, size_t R, size_t C,
-			template<typename, size_t, size_t> typename Matrix,
-			template<typename, size_t, size_t> typename Final>
-		class SignedMatrixHelpers<T, R, C, Matrix, Final,
+			template<typename, size_t, size_t, typename Traits> typename Matrix,
+			template<typename, size_t, size_t, typename Traits> typename Final,
+			typename Traits>
+		class SignedMatrixHelpers<T, R, C, Matrix, Final, Traits,
 			std::enable_if_t<std::is_signed<T>::value>> :
-			public BaseMatrixHelper<T, R, C, Matrix, Final,
-			SignedMatrixHelpers<T, R, C, Matrix, Final>>
+			public BaseMatrixHelper<T, R, C, Matrix, Final, Traits,
+				SignedMatrixHelpers<T, R, C, Matrix, Final, Traits>>
 		{
-			using TFinal = Final<T, R, C>;
+			using TFinal = Final<T, R, C, Traits>;
 
 		public:
 			TFinal& operator-=(T value)
@@ -188,14 +200,14 @@ namespace matrix_details
 				return result;
 			}
 
-			template<template<typename, size_t, size_t> typename U>
-			TFinal& operator-=(const U<T, R, C>& value)
+			template<template<typename, size_t, size_t, typename> typename U>
+			TFinal& operator-=(const U<T, R, C, Traits>& value)
 			{
 				return ForEachCell<Minus>(value);
 			}
 
-			template<template<typename, size_t, size_t> typename U>
-			TFinal operator-(const U<T, R, C>& value) const
+			template<template<typename, size_t, size_t, typename> typename U>
+			TFinal operator-(const U<T, R, C, Traits>& value) const
 			{
 				auto result = static_cast<const TFinal&>(*this);
 				result -= value;
@@ -209,20 +221,23 @@ namespace matrix_details
 	template<
 		typename T, size_t R, size_t C,
 	
-		template<typename T, size_t R, size_t C>
+		template<typename T, size_t R, size_t C, typename Traits>
 		typename Matrix,
 	
-		template<typename T, size_t R, size_t C>
+		template<typename T, size_t R, size_t C, typename Traits>
 		typename Final,
+
+		typename Traits,
 	
 		template<
 			typename T, size_t R, size_t C,
-			template<typename T, size_t R, size_t C> typename Matrix,
-			template<typename T, size_t R, size_t C> typename Final,
+			template<typename T, size_t R, size_t C, typename Traits> typename Matrix,
+			template<typename T, size_t R, size_t C, typename Traits> typename Final,
+			typename Traits,
 			typename...>
 		typename... Mixins>
 	class EMPTY_BASES MatrixFunctions :
-		public Mixins<T, R, C, Matrix, Final>...
+		public Mixins<T, R, C, Matrix, Final, Traits>...
 	{
 	};
 
@@ -231,68 +246,72 @@ namespace matrix_details
 		template<typename T, size_t N>
 		using StaticArray = std::array<T, N>;
 
-		template<typename T, size_t R, size_t C>
-		union UnitedData
+		template<typename T, size_t R, size_t C, typename Traits>
+		union UnitedRowsData
 		{
-			StaticArray<StaticArray<T, C>, R> rows;
+			using Row = StaticArray<T, C>;
+
+			template<size_t ir, size_t ic>
+			T& GetCell() { return rows[ir][ic]; }
+			T& GetCell(size_t ir, size_t ic) { return rows[ir][ic]; }
+
+			template<size_t ir, size_t ic>
+			const T& GetCell() const { return rows[ir][ic]; }
+			const T& GetCell(size_t ir, size_t ic) const { return rows[ir][ic]; }
+			
+			StaticArray<Row, R> rows;
 		};
 
-		template<typename T>
-		union UnitedData<T, 1, 2>
+		template<typename T, size_t R, size_t C, typename Traits>
+		union UnitedColumnsData
 		{
-			struct XYZ { T x, y; } xyz;
-			struct IJK { T i, j; } ijk;
-			StaticArray<StaticArray<T, 2>, 1> rows;
+			using Column = StaticArray<T, R>;
+
+			template<size_t ir, size_t ic>
+			T& GetCell() { return columns[ic][ir]; }
+			T& GetCell(size_t ir, size_t ic) { return columns[ic][ir]; }
+
+			template<size_t ir, size_t ic>
+			const T& GetCell() const { return columns[ic][ir]; }
+			const T& GetCell(size_t ir, size_t ic) const { return columns[ic][ir]; }
+
+			StaticArray<Column, C> columns;
 		};
+
+		template<typename T, size_t R, size_t C,
+			typename Traits>
+		using UnitedData = std::conditional_t<
+			Traits::DataType == DataType::Rows,
+			UnitedRowsData<T, R, C, Traits>,
+			UnitedColumnsData<T, R, C, Traits>>;
 		
 		template<
 			typename T, size_t R, size_t C,
-			template<typename, size_t, size_t> typename Matrix,
-			template<typename, size_t, size_t> typename Final>
+			template<typename, size_t, size_t, typename Traits> typename Matrix,
+			template<typename, size_t, size_t, typename Traits> typename Final,
+			typename Traits>
 		class MatrixData
 		{
 		public:
-			using Row = StaticArray<T, C>;
-
-			Row& GetRow(size_t index)
-			{
-				return data.rows[index];
-			}
-
-			decltype(auto) GetColumn()
-			{
-				return StaticArrayView<T, C, sizeof(T) * R>(data.rows.data()->data());
-			}
-
-			const Row& GetRow(size_t index) const
-			{
-				return data.rows[index];
-			}
-
-			decltype(auto) GetColumn() const
-			{
-				return StaticArrayView<const T, C, sizeof(T) * R>(data.rows.data()->data());
-			}
-
-			template<size_t N>
-			Row& GetRow() { return data.rows[N]; }
-
-			template<size_t N>
-			const Row& GetRow() const { return data.rows[N]; }
-			
-			UnitedData<T, R, C> data;
+			UnitedData<T, R, C, Traits> data;
 		};
 	}
 
-	template<typename T, size_t R, size_t C>
+	class DefaultTraits
+	{
+	public:
+		static constexpr DataType DataType = DataType::Rows;
+	};
+
+	template<typename T, size_t R, size_t C, typename Traits>
 	class Matrix :
-		public MatrixFunctions<T, R, C, Matrix, Matrix,
+		public MatrixFunctions<T, R, C, Matrix, Matrix, Traits,
 			CommonMatrixHelpers::CommonMatrixHelpers,
 			SignedMatrixHelpers::SignedMatrixHelpers>,
-		public matrix_data_details::MatrixData<T, R, C, Matrix, Matrix>
+		public matrix_data_details::MatrixData<T, R, C, Matrix, Matrix, Traits>
 	{
 	};
 }
 
-template<typename T, size_t R, size_t C>
-using Matrix = matrix_details::Matrix<T, R, C>;
+template<typename T, size_t R, size_t C, typename Traits = matrix_details::DefaultTraits>
+using Matrix = matrix_details::Matrix<T, R, C, Traits>;
