@@ -52,6 +52,23 @@ namespace matrix_details
 			}
 		};
 
+		struct Minus
+		{
+			template<size_t ir, size_t ic>
+			static void Execute(TFinal& _this, T value)
+			{
+				_this.GetRow<ir>()[ic] -= value;
+			}
+
+			template<size_t ir, size_t ic,
+				template<typename, size_t, size_t> typename U>
+			static void Execute(TFinal& _this, const U<T, R, C>& value)
+			{
+				_this.GetRow<ir>()[ic] -=
+					value.GetRow<ir>()[ic];
+			}
+		};
+
 		template<typename U, typename... Args>
 		TFinal& ForEachCell(Args&... args)
 		{
@@ -156,7 +173,34 @@ namespace matrix_details
 			public BaseMatrixHelper<T, R, C, Matrix, Final,
 			SignedMatrixHelpers<T, R, C, Matrix, Final>>
 		{
+			using TFinal = Final<T, R, C>;
+
 		public:
+			TFinal& operator-=(T value)
+			{
+				return ForEachCell<Minus>(value);
+			}
+
+			TFinal operator-(T value) const
+			{
+				auto result = static_cast<const TFinal&>(*this);
+				result -= value;
+				return result;
+			}
+
+			template<template<typename, size_t, size_t> typename U>
+			TFinal& operator-=(const U<T, R, C>& value)
+			{
+				return ForEachCell<Minus>(value);
+			}
+
+			template<template<typename, size_t, size_t> typename U>
+			TFinal operator-(const U<T, R, C>& value) const
+			{
+				auto result = static_cast<const TFinal&>(*this);
+				result -= value;
+				return result;
+			}
 		};
 	}
 	

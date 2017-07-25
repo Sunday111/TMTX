@@ -22,6 +22,8 @@ int main()
 	auto mul = matrix * 10.f;
 	auto add = matrix + 10.f;
 	auto add2 = mul + add;
+	auto sub = matrix - 10.f;
+	auto sub2 = matrix - sub;
 
 	static_assert(sizeof(Matrix<float, 4, 4>) == sizeof(float) * 16, "Unexpected extra bytes in matrix layout?");
 }
