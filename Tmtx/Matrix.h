@@ -19,56 +19,12 @@ namespace matrix_details
 		typename T, size_t R, size_t C,
 		template<typename, size_t, size_t> typename Matrix,
 		template<typename, size_t, size_t> typename Final>
-	class CommonMatrixHelpers
+	class BaseMatrixHelper
 	{
+	private:
 		using TFinal = Final<T, R, C>;
 
-	public:
-		TFinal& operator*=(T value)
-		{
-			auto& _this = static_cast<TFinal&>(*this);
-			ForEachCell<Multiply>(value);
-			return _this;
-		}
-
-		TFinal operator*(T value) const
-		{
-			auto result = static_cast<const TFinal&>(*this);
-			result *= value;
-			return result;
-		}
-
-		TFinal& operator+=(T value)
-		{
-			auto& _this = static_cast<TFinal&>(*this);
-			ForEachCell<Plus>(value);
-			return _this;
-		}
-
-		TFinal operator+(T value) const
-		{
-			auto result = static_cast<const TFinal&>(*this);
-			result += value;
-			return result;
-		}
-
-		template<template<typename, size_t, size_t> typename U>
-		TFinal& operator+=(const U<T, R, C>& value)
-		{
-			auto& _this = static_cast<TFinal&>(*this);
-			ForEachCell<Plus>(value);
-			return _this;
-		}
-
-		template<template<typename, size_t, size_t> typename U>
-		TFinal operator+(const U<T, R, C>& value) const
-		{
-			auto result = static_cast<const TFinal&>(*this);
-			result += value;
-			return result;
-		}
-
-	private:
+	protected:
 		struct Multiply
 		{
 			template<size_t ir, size_t ic>
@@ -96,22 +52,77 @@ namespace matrix_details
 		};
 
 		template<typename U, typename... Args>
-		void ForEachCell(Args&... args)
+		TFinal& ForEachCell(Args&... args)
 		{
 			ForEachRow<U>(std::make_index_sequence<R>(), args...);
+			return static_cast<TFinal&>(*this);
 		}
 
 		template<typename U, size_t... indices, typename... Args>
 		void ForEachRow(std::index_sequence<indices...>, Args&... args)
 		{
-			(void)std::initializer_list<int> { (ForEachCellInRow<U, indices>(std::make_index_sequence<C>(), args...), 0)... };
+			(void)std::initializer_list<int>
+			{
+				(ForEachCellInRow<U, indices>(std::make_index_sequence<C>(), args...), 0)...
+			};
 		}
 
 		template<typename U, size_t ir, size_t... indices, typename... Args>
 		void ForEachCellInRow(std::index_sequence<indices...>, Args&... args)
 		{
-			(void)std::initializer_list<int> { (U::Execute<ir, indices>(
-				static_cast<TFinal&>(*this), args...), 0)... };
+			(void)std::initializer_list<int>
+			{
+				(U::Execute<ir, indices>(static_cast<TFinal&>(*this), args...), 0)...
+			};
+		}
+	};
+
+	template<
+		typename T, size_t R, size_t C,
+		template<typename, size_t, size_t> typename Matrix,
+		template<typename, size_t, size_t> typename Final>
+	class CommonMatrixHelpers :
+		public BaseMatrixHelper<T, R, C, Matrix, Final>
+	{
+		using TFinal = Final<T, R, C>;
+
+	public:
+		TFinal& operator*=(T value)
+		{
+			return ForEachCell<Multiply>(value);
+		}
+
+		TFinal operator*(T value) const
+		{
+			auto result = static_cast<const TFinal&>(*this);
+			result *= value;
+			return result;
+		}
+
+		TFinal& operator+=(T value)
+		{
+			return ForEachCell<Plus>(value);
+		}
+
+		TFinal operator+(T value) const
+		{
+			auto result = static_cast<const TFinal&>(*this);
+			result += value;
+			return result;
+		}
+
+		template<template<typename, size_t, size_t> typename U>
+		TFinal& operator+=(const U<T, R, C>& value)
+		{
+			return ForEachCell<Plus>(value);
+		}
+
+		template<template<typename, size_t, size_t> typename U>
+		TFinal operator+(const U<T, R, C>& value) const
+		{
+			auto result = static_cast<const TFinal&>(*this);
+			result += value;
+			return result;
 		}
 	};
 	
